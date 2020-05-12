@@ -1,7 +1,3 @@
-from math import sqrt
-from random import seed, randrange
-import csv
-
 # Usage: predictions, forecasting
 # Methodology:
 #   Regression assumes a linear/straight line relationship between input variables (X) and single output variable (y)
@@ -14,6 +10,42 @@ import csv
 
 # Training Data - Swedish Insurance dataset (https://www.math.muni.cz/~kolacek/docs/frvs/M7222/data/AutoInsurSweden.txt)
 # Goal: predict total payment for all claims in thousands of Sweidish Kronor (y) given total number of claims(x)
+
+from random import seed
+from random import randrange
+from math import sqrt
+import csv
+
+# Read dataset (CSV file)
+
+
+def loadCSV(filename):
+    dataset = []
+    with open(filename, "r") as file:
+        csvReader = csv.reader(file)
+        for row in csvReader:
+            if not row:
+                continue
+            dataset.append(row)
+    return dataset
+
+# Convert string column to float
+
+
+def strColumnToFloat(dataset, column):
+    for row in dataset:
+        row[column] = float(row[column].strip())
+# Split dataset into train & test sets
+
+
+def splitTrainTest(dataset, split):
+    train = []
+    trainSize = split * len(dataset)
+    datasetCopy = list(dataset)
+    while len(train) < trainSize:
+        index = randrange(len(datasetCopy))
+        train.append(datasetCopy.pop(index))
+    return train, datasetCopy
 
 # Prep - calculate RMSE (error)
 
@@ -33,7 +65,7 @@ def evaluateAlgorithm(dataset, algorithm, split, *args):
     train, test = splitTrainTest(dataset, split)
     testSet = []
     for row in test:
-        rowCopy = [row]
+        rowCopy = list(row)
         rowCopy[-1] = None
         testSet.append(rowCopy)
     predicted = algorithm(train, testSet, *args)
@@ -66,8 +98,7 @@ def covariance(x, mean_x, y, mean_y):
     return covar
 
 # 3. Estimate Coefficients (b1 = sum((x(i) - mean(x)) * (y(i) - mean(y))) / sum((x(i) - mean(x))^2)) = covariance(x, y) / variance(x)
-# Also, calculates the intercept (b0), which controls starting point of line (b0 = mean(y) - b1 * mean(x))
-# Calculate coefficients
+# Also, calculates the Intercept (b0), which controls starting point of line (b0 = mean(y) - b1 * mean(x))
 
 
 def coefficients(dataset):
@@ -78,7 +109,7 @@ def coefficients(dataset):
     b0 = y_mean - b1 * x_mean
     return [b0, b1]
 
-# 4. Make Predictions (y = b0 + b1 * x)
+# 4. Make Predictions with Linear Regression algorithm (y = b0 + b1 * x)
 
 
 def simpleLinearRegression(train, test):
@@ -94,35 +125,10 @@ def simpleLinearRegression(train, test):
 
 
 if __name__ == "__main__":
-
-    # Load dataset (CSV file)
-    def loadCSV(filename):
-        dataset = []
-        with open(filename, "r") as file:
-            csvReader = csv.reader(file)
-            for row in csvReader:
-                if not row:
-                    continue
-                dataset.append(row)
-        return dataset
-
-    # Convert string column to float
-    def strColumnToFloat(dataset, column):
-        for row in dataset:
-            row[column] = float(row[column].strip())
-
-    # Split dataset into train & test sets
-    def splitTrainTest(dataset, split):
-        train = []
-        trainSize = split * len(dataset)
-        datasetCopy = [dataset]
-        while len(train) < trainSize:
-            index = randrange(len(datasetCopy))
-            train.append(datasetCopy.pop(index))
-        return train, datasetCopy
-
-    # Prepare dataset
+    # Reset random number generator
     seed(1)
+
+    # Load dataset
     filename = "insurance.csv"
     dataset = loadCSV(filename)
     for i in range(len(dataset[0])):
