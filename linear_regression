@@ -1,0 +1,134 @@
+from math import sqrt
+from random import seed, randrange
+import csv
+
+# Usage: predictions, forecasting
+# Methodology:
+#   Regression assumes a linear/straight line relationship between input variables (X) and single output variable (y)
+#   Output (y) can be calculated from a linear combination of input variables (X)
+#   Estimates unknown coefficients required by model to make predictions on new data
+# Formula: y = b0 + b1 * x (b0, b1 are unknown coefficients)
+# Requirements: statistical properties (mean, variane, covariance)
+#   b0 = mean(y) - b1 * mean(x)
+#   b1 = sum((x(i) - mean(x)) * (y(i) - mean(y))) / sum((x(i) - mean(x))^2)
+
+# Training Data - Swedish Insurance dataset (https://www.math.muni.cz/~kolacek/docs/frvs/M7222/data/AutoInsurSweden.txt)
+# Goal: predict total payment for all claims in thousands of Sweidish Kronor (y) given total number of claims(x)
+
+# Prep - calculate RMSE (error)
+
+
+def rmseMetric(actual, predicted):
+    sumError = 0.0
+    for i in range(len(actual)):
+        predictionError = predicted[i] - actual[i]
+        sumError += (predictionError**2)
+    meanError = sumError / float(len(actual))
+    return sqrt(meanError)
+
+# Prep - evaluate regression algorithm on training dataset
+
+
+def evaluateAlgorithm(dataset, algorithm, split, *args):
+    train, test = splitTrainTest(dataset, split)
+    testSet = []
+    for row in test:
+        rowCopy = [row]
+        rowCopy[-1] = None
+        testSet.append(rowCopy)
+    predicted = algorithm(train, testSet, *args)
+    actual = [row[-1] for row in test]
+    rmse = rmseMetric(actual, predicted)
+    return rmse
+
+# 1. Calculate Mean & Variance (both input & output)
+# Calculate mean value of a list of numbers
+
+
+def mean(values):
+    return sum(values) / float(len(values))     # mean(x) = sum(x) / count(x)
+
+# Calculate variance of a list of numbers
+
+
+def variance(values, mean):
+    # variance = sum((x - mean(x))^2)
+    return sum([(x - mean)**2 for x in values])
+
+# 2. Calculate Covariance (describes how groups of numbers change together; generalization of correlation)
+# Calculate covariance between x & y
+
+
+def covariance(x, mean_x, y, mean_y):
+    covar = 0.0
+    for i in range(len(x)):
+        covar += (x[i] - mean_x) * (y[i] - mean_y)
+    return covar
+
+# 3. Estimate Coefficients (b1 = sum((x(i) - mean(x)) * (y(i) - mean(y))) / sum((x(i) - mean(x))^2)) = covariance(x, y) / variance(x)
+# Also, calculates the intercept (b0), which controls starting point of line (b0 = mean(y) - b1 * mean(x))
+# Calculate coefficients
+
+
+def coefficients(dataset):
+    x = [row[0] for row in dataset]
+    y = [row[1] for row in dataset]
+    x_mean, y_mean = mean(x), mean(y)
+    b1 = covariance(x, x_mean, y, y_mean) / variance(x, x_mean)
+    b0 = y_mean - b1 * x_mean
+    return [b0, b1]
+
+# 4. Make Predictions (y = b0 + b1 * x)
+
+
+def simpleLinearRegression(train, test):
+    predictions = []
+    b0, b1 = coefficients(train)
+
+    for row in test:
+        y_hat = b0 + b1 * row[0]
+        predictions.append(y_hat)
+    return predictions
+
+# --- 5. Predict Insurance (Driver Program) --- #
+
+
+if __name__ == "__main__":
+
+    # Load dataset (CSV file)
+    def loadCSV(filename):
+        dataset = []
+        with open(filename, "r") as file:
+            csvReader = csv.reader(file)
+            for row in csvReader:
+                if not row:
+                    continue
+                dataset.append(row)
+        return dataset
+
+    # Convert string column to float
+    def strColumnToFloat(dataset, column):
+        for row in dataset:
+            row[column] = float(row[column].strip())
+
+    # Split dataset into train & test sets
+    def splitTrainTest(dataset, split):
+        train = []
+        trainSize = split * len(dataset)
+        datasetCopy = [dataset]
+        while len(train) < trainSize:
+            index = randrange(len(datasetCopy))
+            train.append(datasetCopy.pop(index))
+        return train, datasetCopy
+
+    # Prepare dataset
+    seed(1)
+    filename = "insurance.csv"
+    dataset = loadCSV(filename)
+    for i in range(len(dataset[0])):
+        strColumnToFloat(dataset, i)
+
+    # Evaluate algorithm
+    split = 0.6
+    rmse = evaluateAlgorithm(dataset, simpleLinearRegression, split)
+    print("RMSE: %.3f" % (rmse))
