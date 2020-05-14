@@ -11,8 +11,7 @@
 # Training Data - Swedish Insurance dataset (https://www.math.muni.cz/~kolacek/docs/frvs/M7222/data/AutoInsurSweden.txt)
 # Goal: predict total payment for all claims in thousands of Sweidish Kronor (y) given total number of claims(x)
 
-from random import seed
-from random import randrange
+from random import seed, randrange
 from math import sqrt
 import csv
 
@@ -129,7 +128,7 @@ if __name__ == "__main__":
     seed(1)
 
     # Load dataset
-    filename = "insurance.csv"
+    filename = "data/insurance.csv"
     dataset = loadCSV(filename)
     for i in range(len(dataset[0])):
         strColumnToFloat(dataset, i)

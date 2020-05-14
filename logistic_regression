@@ -1,1 +1,184 @@
 # Usage: binary classification (malignant or benign cancer)
+# Trianing dataset: https://raw.githubusercontent.com/jbrownlee/Datasets/master/pima-indians-diabetes.csv
+# Logistic Regression: linear classification algorithm for two-class problems
+#   Methodology: input values (X) are combined linearly using weights (coefficients) to predict an output value (y)
+#   Difference from Linear Regression: output value being modeled is a binary value (0 or 1); rather than numeric
+#       yhat = e^(b0 + b1 * x1) / (1 + e^(b0 + b1 * x1)); simplified to, yhat = 1.0 / (1.0 + e^(-(b0 + b1 * x1)))
+#       e is base of natural logarithms (Eutler's number), yhat is predicted output (0 or 1), b0 is the intercept/bias, b1 is coefficient for single input x1
+#       each column in input data is associated with (b) coeffiecient (constant real value) that must be learned from training data
+# Stochastic Gradient Descent (SGD): process of minimizing a function by following the gradients of the cost function
+#   Involved knowing the form of the cost, and the derivative (ie; direction of movement)
+#   Evaluates and updates coefficients every iteration to minimize error of training
+#   Methodology: each training instance is shown to the model one at a time; model makes a prediction; error is calculated; model is updated to reduce error for next prediction
+#       b = b + learning rate * (y 0 yhat) * yhat * (1 - yhat) * x
+#       b is coefficient/weight being optimized, (y - yhat) is prediction error attributed to weight
+
+from random import seed, randrange
+from math import exp
+import csv
+
+# 1. Making Predictions
+
+# Make a prediction with coefficients (weights)
+
+
+def predict(row, coefficients):
+    # first coefficient is always the intercept/bias (not responsible for specific input value; stands alone)
+    yHat = coefficients[0]
+    for i in range(len(row) - 1):
+        yHat += coefficients[i + 1] * row[i]
+    return 1.0 / (1.0 + exp(-yHat))
+
+# 2. Estimate Coefficients
+
+# Estimate logistic regression coefficients using stochastic gradient descent (SGD)
+#   SGD requires 2 parameters: learning rate, epochs
+#       learning rate: limits the amount each coefficient is corrected each time it is updated
+#       epochs: number of times to run though the training data while updating coefficients
+#   Coefficients are updated based on error the model made
+#       error is calculated as difference between expected output and prediction made with candidate coefficient
+
+
+def coefficientsSGD(train, lRate, nEpoch):
+    coef = [0.0 for i in range(len(train[0]))]
+    for epoch in range(nEpoch):  # loop 1: loop over each epoch
+        for row in train:  # loop 2: loop over each row in training data per epoch
+            yHat = predict(row, coef)
+            error = row[-1] - yHat
+            # intercept/bias is updated without input as: b0(t+1) = b0(t) + learning rate * (y(t) - yhat(t)) * yhat(t) * (1 - yhat(t))
+            coef[0] = coef[0] + lRate * error * yHat * (1.0 - yHat)
+            # loop 3: loop over each coefficient & update it for each row in an epoch
+            for i in range(len(row) - 1):
+                # other coefficients updated with input as: b1(t+1) = b1(t) + learning rate * (y(t) - yhat(t)) * yhat(t) * (1 - yhat(t)) * x1(t)
+                coef[i + 1] = coef[i + 1] + lRate * \
+                    error * yHat * (1.0 - yHat) * row[i]
+    return coef
+
+# 3. Train Model using SGD to Make Diabetes Prediction
+
+# Linear Regression algorithm with SGD
+
+
+def logisticRegression(train, test, lRate, nEpoch):
+    predictions = []
+    coef = coefficientsSGD(train, lRate, nEpoch)
+    for row in test:
+        yHat = predict(row, coef)
+        yHat = round(yHat)
+        predictions.append(yHat)
+    return (predictions)
+
+# --- Prep --- #
+
+# Load dataset file
+
+
+def loadCSV(filename):
+    dataset = []
+    with open(filename, "r") as file:
+        csvReader = csv.reader(file)
+        for row in csvReader:
+            if not row:
+                continue
+            dataset.append(row)
+    return dataset
+
+# Convert string column to float
+
+
+def stringColumnToFloat(dataset, column):
+    for row in dataset:
+        row[column] = float(row[column].strip())
+
+# Find min & max values for each column
+
+
+def datasetMinMax(dataset):
+    minMax = []
+    for i in range(len(dataset[0])):
+        colValues = [row[i] for row in dataset]
+        valueMin = min(colValues)
+        valueMax = max(colValues)
+        minMax.append([valueMin, valueMax])
+    return minMax
+
+# Rescale dataset columns to range 0-1
+
+
+def normalizeDataset(dataset, minMax):
+    for row in dataset:
+        for i in range(len(row)):
+            row[i] = (row[i] - minMax[i][0]) / (minMax[i][1] - minMax[i][0])
+
+# Split dataset into k-folds cross validation (estimates performance of learned model on unseen data)
+
+
+def crossValidationSplit(dataset, nFolds):
+    datasetSplit = []
+    datasetCopy = list(dataset)
+    foldSize = int(len(dataset) / nFolds)
+    for i in range(nFolds):
+        fold = []
+        while len(fold) < foldSize:
+            index = randrange(len(datasetCopy))
+            fold.append(datasetCopy.pop(index))
+        datasetSplit.append(fold)
+    return datasetSplit
+
+# Calculate accuracy percentage
+
+
+def accuracyMetric(actual, predicted):
+    correct = 0
+    for i in range(len(actual)):
+        if actual[i] == predicted[i]:
+            correct += 1
+    return correct / float(len(actual)) * 100.0
+
+# Evaluate algorithm using cross validation split
+
+
+def evaluateAlgorithm(dataset, algorithm, nFolds, *args):
+    folds = crossValidationSplit(dataset, nFolds)
+    scores = []
+    for fold in folds:
+        trainSet = list(folds)
+        trainSet.remove(fold)
+        trainSet = sum(trainSet, [])
+        testSet = []
+        for row in fold:
+            rowCopy = list(row)
+            testSet.append(rowCopy)
+            rowCopy[-1] = None
+        predicted = algorithm(trainSet, testSet, *args)
+        actual = [row[-1] for row in fold]
+        accuracy = accuracyMetric(actual, predicted)
+        scores.append(accuracy)
+    return scores
+
+
+# --- Driver Program to Test Cases --- #
+if __name__ == "__main__":
+
+    # Rest random integer generator
+    seed(1)
+
+    # Load & prepare data
+    filename = "data/pima-indians-diabetes.csv"
+    dataset = loadCSV(filename)
+    for i in range(len(dataset[0])):
+        stringColumnToFloat(dataset, i)
+
+    # Normalize
+    minMax = datasetMinMax(dataset)
+    normalizeDataset(dataset, minMax)
+
+    # Evaluate algorithm
+    nFolds = 5
+    lRate = 0.1
+    nEpoch = 100
+    scores = evaluateAlgorithm(
+        dataset, logisticRegression, nFolds, lRate, nEpoch)
+
+    print("Scores: %s" % scores)
+    print("Mean Accuracy: %0.3f%%" % (sum(scores) / float(len(scores))))
